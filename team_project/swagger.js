@@ -13,7 +13,7 @@ const doc = {
     description: 'API for managing users and books'
   },
   host: 'localhost:3000',
-  schemes: ['http'],
+  schemes: ['http', 'https'],
   tags: [
     { name: 'Users', description: 'User CRUD operations' },
     { name: 'Books', description: 'Book CRUD operations' }

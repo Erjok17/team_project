@@ -130,6 +130,8 @@ mongodb.initDb(err => {
       app.use('/', routes);
       app.use('/users', require('./routes/users'));
       app.use('/books', require('./routes/books')); 
+      app.use('/orders', require('./routes/orders'));
+      app.use('/reviews', require('./routes/reviews'));
   
       app.listen(port, '0.0.0.0', () => {
         console.log(`Server is running on port ${port}`);

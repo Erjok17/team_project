@@ -16,7 +16,9 @@ const doc = {
   schemes: ['http', 'https'],
   tags: [
     { name: 'Users', description: 'User CRUD operations' },
-    { name: 'Books', description: 'Book CRUD operations' }
+    { name: 'Books', description: 'Book CRUD operations' },
+    { name: 'Orders', description: 'Order CRUD operations' },
+    { name: 'Reviews', description: 'Reviews CRUD operations' }
   ],
   securityDefinitions: {
     githubAuth: {
@@ -82,6 +84,79 @@ const doc = {
           type: 'integer',
           example: 50,
           description: "Copies in stock"
+        }
+      }
+    },
+    Order: {
+      type: 'object',
+      required: ['userId', 'books', 'totalAmount', 'status'],
+      properties: {
+        userId: {
+          type: 'string',
+          example: '507f1f77bcf86cd799439011',
+          description: "User ID who placed the order"
+        },
+        books: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              bookId: {
+                type: 'string',
+                example: '507f1f77bcf86cd799439012',
+                description: "Book ID"
+              },
+              quantity: {
+                type: 'integer',
+                example: 2,
+                description: "Quantity ordered",
+                minimum: 1
+              }
+            }
+          },
+          description: "List of books in the order"
+        },
+        totalAmount: {
+          type: 'number',
+          format: 'float',
+          example: 25.98,
+          description: "Total order amount",
+          minimum: 0
+        },
+        status: {
+          type: 'string',
+          enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+          default: 'pending',
+          description: "Order status"
+        }
+      }
+    },
+    Review: {
+      type: 'object',
+      required: ['userId', 'bookId', 'rating'],
+      properties: {
+        userId: {
+          type: 'string',
+          example: '507f1f77bcf86cd799439011',
+          description: "User ID who wrote the review"
+        },
+        bookId: {
+          type: 'string',
+          example: '507f1f77bcf86cd799439012',
+          description: "Book ID being reviewed"
+        },
+        rating: {
+          type: 'integer',
+          example: 5,
+          description: "Rating (1-5)",
+          minimum: 1,
+          maximum: 5
+        },
+        comment: {
+          type: 'string',
+          example: 'Excellent book!',
+          description: "Review comment",
+          maxLength: 500
         }
       }
     }
@@ -284,6 +359,206 @@ const doc = {
           204: { description: 'Book deleted' },
           401: { description: 'Unauthorized' },
           404: { description: 'Book not found' }
+        }
+      }
+    },
+    '/orders': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get all orders',
+        responses: {
+          200: {
+            description: 'List of orders',
+            schema: {
+              type: 'array',
+              items: { $ref: '#/definitions/Order' }
+            }
+          }
+        }
+      },
+      post: {
+        tags: ['Orders'],
+        summary: 'Create an order',
+        security: [{ githubAuth: ['user:email'] }],
+        parameters: [{
+          name: 'order',
+          in: 'body',
+          required: true,
+          schema: { $ref: '#/definitions/Order' }
+        }],
+        responses: {
+          201: {
+            description: 'Order created',
+            schema: { $ref: '#/definitions/Order' }
+          },
+          400: { description: 'Invalid input' },
+          401: { description: 'Unauthorized' }
+        }
+      }
+    },
+    '/orders/{id}': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get order by ID',
+        parameters: [{
+          name: 'id',
+          in: 'path',
+          required: true,
+          type: 'string',
+          description: 'Order ID'
+        }],
+        responses: {
+          200: {
+            description: 'Order details',
+            schema: { $ref: '#/definitions/Order' }
+          },
+          404: { description: 'Order not found' }
+        }
+      },
+      put: {
+        tags: ['Orders'],
+        summary: 'Update order',
+        security: [{ githubAuth: ['user:email'] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            type: 'string',
+            description: 'Order ID'
+          },
+          {
+            name: 'order',
+            in: 'body',
+            required: true,
+            schema: { $ref: '#/definitions/Order' }
+          }
+        ],
+        responses: {
+          200: {
+            description: 'Order updated',
+            schema: { $ref: '#/definitions/Order' }
+          },
+          400: { description: 'Invalid input' },
+          401: { description: 'Unauthorized' },
+          404: { description: 'Order not found' }
+        }
+      },
+      delete: {
+        tags: ['Orders'],
+        summary: 'Delete order',
+        security: [{ githubAuth: ['user:email'] }],
+        parameters: [{
+          name: 'id',
+          in: 'path',
+          required: true,
+          type: 'string',
+          description: 'Order ID'
+        }],
+        responses: {
+          204: { description: 'Order deleted' },
+          401: { description: 'Unauthorized' },
+          404: { description: 'Order not found' }
+        }
+      }
+    },
+    '/reviews': {
+      get: {
+        tags: ['Reviews'],
+        summary: 'Get all reviews',
+        responses: {
+          200: {
+            description: 'List of reviews',
+            schema: {
+              type: 'array',
+              items: { $ref: '#/definitions/Review' }
+            }
+          }
+        }
+      },
+      post: {
+        tags: ['Reviews'],
+        summary: 'Create a review',
+        security: [{ githubAuth: ['user:email'] }],
+        parameters: [{
+          name: 'review',
+          in: 'body',
+          required: true,
+          schema: { $ref: '#/definitions/Review' }
+        }],
+        responses: {
+          201: {
+            description: 'Review created',
+            schema: { $ref: '#/definitions/Review' }
+          },
+          400: { description: 'Invalid input' },
+          401: { description: 'Unauthorized' }
+        }
+      }
+    },
+    '/reviews/{id}': {
+      get: {
+        tags: ['Reviews'],
+        summary: 'Get review by ID',
+        parameters: [{
+          name: 'id',
+          in: 'path',
+          required: true,
+          type: 'string',
+          description: 'Review ID'
+        }],
+        responses: {
+          200: {
+            description: 'Review details',
+            schema: { $ref: '#/definitions/Review' }
+          },
+          404: { description: 'Review not found' }
+        }
+      },
+      put: {
+        tags: ['Reviews'],
+        summary: 'Update review',
+        security: [{ githubAuth: ['user:email'] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            type: 'string',
+            description: 'Review ID'
+          },
+          {
+            name: 'review',
+            in: 'body',
+            required: true,
+            schema: { $ref: '#/definitions/Review' }
+          }
+        ],
+        responses: {
+          200: {
+            description: 'Review updated',
+            schema: { $ref: '#/definitions/Review' }
+          },
+          400: { description: 'Invalid input' },
+          401: { description: 'Unauthorized' },
+          404: { description: 'Review not found' }
+        }
+      },
+      delete: {
+        tags: ['Reviews'],
+        summary: 'Delete review',
+        security: [{ githubAuth: ['user:email'] }],
+        parameters: [{
+          name: 'id',
+          in: 'path',
+          required: true,
+          type: 'string',
+          description: 'Review ID'
+        }],
+        responses: {
+          204: { description: 'Review deleted' },
+          401: { description: 'Unauthorized' },
+          404: { description: 'Review not found' }
         }
       }
     }

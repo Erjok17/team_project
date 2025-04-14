@@ -7,6 +7,8 @@ const isAuthenticated = require('../middleware/authenticate');
 router.use('/', require('./swagger'));
 router.use('/users', require('./users'));
 router.use('/books', require('./books'));
+router.use('/orders', require('./orders'));
+router.use('/reviews', require('./reviews'));
 
 router.get('/', (req, res) => {
   res.json({ 
@@ -16,7 +18,9 @@ router.get('/', (req, res) => {
       login: '/auth/github',
       logout: '/logout',
       users: '/users',
-      books: '/books'
+      books: '/books',
+      orders: '/orders',
+      reviews: '/reviews'
     }
   });
 });

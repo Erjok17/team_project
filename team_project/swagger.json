@@ -7,7 +7,6 @@
   },
   "host": "team-project-ahvx.onrender.com",
   "schemes": [
-    "http",
     "https"
   ],
   "tags": [

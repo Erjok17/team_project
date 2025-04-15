@@ -22,17 +22,21 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // Replace your session middleware with this:
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || 'fallback-secret-for-dev-only', // Never use fallback in production
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 14 * 24 * 60 * 60 // 14 days
+      ttl: 14 * 24 * 60 * 60,
+      autoRemove: 'interval',
+      autoRemoveInterval: 60
     }),
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      secure: true, // MUST be true (not conditional)
+      sameSite: 'none', // Changed from 'strict'
+      domain: 'team-project-ahvx.onrender.com', // Add this
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000
     }
   })
 );
@@ -41,28 +45,18 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Configure GitHub Strategy
-passport.use(
-  new GitHubStrategy(
-    {
-      clientID: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL: process.env.GITHUB_CALLBACK_URL
-    },
-    function(accessToken, refreshToken, profile, done) {
-      // Typically you would find or create a user in your database here
-      return done(null, profile);
-    }
-  )
-);
-
-// Serialize/Deserialize user
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
+passport.use(new GitHubStrategy({
+  clientID: process.env.GITHUB_CLIENT_ID,
+  clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  callbackURL: process.env.GITHUB_CALLBACK_URL,
+  proxy: true,
+  state: true, // ← Add CSRF protection
+  scope: ['user:email'],
+  userAgent: 'Bookstore-API' // ← Add this
+}, (accessToken, refreshToken, profile, done) => {
+  console.log('GitHub Profile:', profile.id); // Debug log
+  return done(null, profile);
+}));
 
 // CORS configuration
 app.use(
@@ -85,6 +79,14 @@ app.use(
     }
   })
 );
+
+// 3. Add HTTPS enforcement middleware (before routes)
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] !== 'https' && process.env.NODE_ENV === 'production') {
+    return res.redirect(`https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
 
 // Root route with login status
 app.get('/', (req, res) => {

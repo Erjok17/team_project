@@ -8,7 +8,6 @@ const passport = require('passport');
 const session = require('express-session');
 const GitHubStrategy = require('passport-github2').Strategy;
 const cors = require('cors');
-const routes = require('./routes');
 const MongoStore = require('connect-mongo');
 
 const app = express();
@@ -18,6 +17,7 @@ const port = process.env.PORT || 3000;
 //               MIDDLEWARE SETUP
 // =============================================
 
+// Body parser middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
@@ -32,10 +32,10 @@ app.use(
       ttl: 14 * 24 * 60 * 60 // 14 days
     }),
     cookie: {
-      secure: true,           // ✅ Must be true for HTTPS on Render
+      secure: process.env.NODE_ENV === 'production', // ✅ Must be true for HTTPS on Render
       sameSite: 'none',       // ✅ Allows cross-origin cookies (GitHub → Render)
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   })
 );
@@ -47,9 +47,10 @@ app.use(passport.session());
 // CORS setup
 app.use(
   cors({
-    origin: '*',
+    origin: process.env.CLIENT_URL || 'http://localhost:3000', // Replace with your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Z-Key', 'Authorization']
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+    credentials: true // Allow cookies to be sent with requests
   })
 );
 
@@ -63,9 +64,10 @@ passport.use(
       clientID: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL: process.env.GITHUB_CALLBACK_URL,
-      proxy: true
+      proxy: true // ✅ Ensures proper callback handling behind proxies
     },
     (accessToken, refreshToken, profile, done) => {
+      // Save user profile to the session or database
       return done(null, profile);
     }
   )
@@ -83,6 +85,7 @@ passport.deserializeUser((user, done) => {
 //                 API ROUTES
 // =============================================
 
+// Swagger API documentation
 app.use(
   '/api-docs',
   swaggerUi.serve,
@@ -115,6 +118,7 @@ app.get(
         return next(err);
       }
       console.log('User authenticated and stored in session:', req.user);
+      console.log('Session after login:', req.session); // Debugging session
       res.redirect('/');
     });
   }
@@ -122,13 +126,29 @@ app.get(
 
 // Logout route
 app.get('/logout', (req, res) => {
-  req.session.destroy(err => {
+  req.logout(err => {
     if (err) {
-      res.status(400).send('Unable to log out');
-    } else {
-      res.send('Logout successful');
+      console.error('Logout error:', err);
+      return res.status(500).send('Logout failed');
     }
+    req.session.destroy(err => {
+      if (err) {
+        console.error('Session destruction error:', err);
+        return res.status(500).send('Failed to destroy session');
+      }
+      res.clearCookie('connect.sid'); // Clear the session cookie
+      res.send('Logout successful');
+    });
   });
+});
+
+// Protected route for testing authentication
+app.get('/protected', (req, res) => {
+  if (req.isAuthenticated()) {
+    res.send(`Welcome to the protected route, ${req.user.username || req.user.displayName}!`);
+  } else {
+    res.status(401).send('Unauthorized: Please log in.');
+  }
 });
 
 // =============================================
@@ -142,12 +162,14 @@ mongodb.initDb(err => {
   } else {
     console.log('Connected to MongoDB successfully');
 
-    app.use('/', routes);
+    // Register routes
+    app.use('/', require('./routes'));
     app.use('/users', require('./routes/users'));
     app.use('/books', require('./routes/books'));
     app.use('/orders', require('./routes/orders'));
     app.use('/reviews', require('./routes/reviews'));
 
+    // Start the server
     app.listen(port, '0.0.0.0', () => {
       console.log(`Server is running on port ${port}`);
       console.log(`API Docs: http://localhost:${port}/api-docs`);

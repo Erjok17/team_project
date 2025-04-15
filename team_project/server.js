@@ -32,14 +32,13 @@ app.use(
       ttl: 14 * 24 * 60 * 60 // 14 days
     }),
     cookie: {
-      secure: process.env.NODE_ENV === 'production', // ✅ Must be true for HTTPS on Render
-      sameSite: 'none',       // ✅ Allows cross-origin cookies (GitHub → Render)
+      secure: process.env.NODE_ENV === 'production', // Must be true for HTTPS
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin cookies
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   })
 );
-
 // Passport initialization
 app.use(passport.initialize());
 app.use(passport.session());
@@ -47,7 +46,7 @@ app.use(passport.session());
 // CORS setup
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000', // Replace with your frontend URL
+    origin: process.env.CLIENT_URL || 'https://team-project-ahvx.onrender.com', // Replace with your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
     credentials: true // Allow cookies to be sent with requests
@@ -75,9 +74,12 @@ passport.use(
 
 // Session handling
 passport.serializeUser((user, done) => {
+  console.log('Serializing user:', user);
   done(null, user);
 });
+
 passport.deserializeUser((user, done) => {
+  console.log('Deserializing user:', user);
   done(null, user);
 });
 
@@ -100,6 +102,8 @@ app.use(
 
 // ✅ FIXED ROOT ROUTE TO CHECK PROPER LOGIN STATUS
 app.get('/', (req, res) => {
+  console.log('Session details:', req.session); // Debugging session
+  console.log('User details:', req.user); // Debugging user
   if (req.isAuthenticated()) {
     res.send(`Logged in as ${req.user.username || req.user.displayName}`);
   } else {

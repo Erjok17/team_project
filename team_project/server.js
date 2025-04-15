@@ -9,54 +9,41 @@ const session = require('express-session');
 const GitHubStrategy = require('passport-github2').Strategy;
 const cors = require('cors');
 const routes = require('./routes');
-const MongoStore = require('connect-mongo'); // NEW REQUIRE
+const MongoStore = require('connect-mongo');
 
-
+// Initialize Express app
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Enhanced Middleware
+// =============================================
+//               MIDDLEWARE SETUP
+// =============================================
+
+// Body parser middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// Replace your session middleware with this:
+// Session configuration
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'fallback-secret-for-dev-only',
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 14 * 24 * 60 * 60,
-      autoRemove: 'interval',
-      autoRemoveInterval: 60
+      ttl: 14 * 24 * 60 * 60 // 14 days
     }),
     cookie: {
-      secure: true, // MUST be true (not conditional)
-      sameSite: 'none', // Changed from 'strict'
-      domain: 'team-project-ahvx.onrender.com', // Add this
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   })
 );
+
 // Passport initialization
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Configure GitHub Strategy
-passport.use(new GitHubStrategy({
-  clientID: process.env.GITHUB_CLIENT_ID,
-  clientSecret: process.env.GITHUB_CLIENT_SECRET,
-  callbackURL: process.env.GITHUB_CALLBACK_URL,
-  proxy: true,
-  state: true, // ← Add CSRF protection
-  scope: ['user:email'],
-  userAgent: 'Bookstore-API' // ← Add this
-}, (accessToken, refreshToken, profile, done) => {
-  console.log('GitHub Profile:', profile.id); // Debug log
-  return done(null, profile);
-}));
 
 // CORS configuration
 app.use(
@@ -66,6 +53,38 @@ app.use(
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Z-Key', 'Authorization']
   })
 );
+
+// =============================================
+//             PASSPORT CONFIGURATION
+// =============================================
+
+// GitHub OAuth Strategy
+passport.use(
+  new GitHubStrategy(
+    {
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL: process.env.GITHUB_CALLBACK_URL,
+      proxy: true
+    },
+    (accessToken, refreshToken, profile, done) => {
+      return done(null, profile);
+    }
+  )
+);
+
+// User serialization
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+// =============================================
+//                 API ROUTES
+// =============================================
 
 // Swagger Documentation
 app.use(
@@ -80,15 +99,7 @@ app.use(
   })
 );
 
-// 3. Add HTTPS enforcement middleware (before routes)
-app.use((req, res, next) => {
-  if (req.headers['x-forwarded-proto'] !== 'https' && process.env.NODE_ENV === 'production') {
-    return res.redirect(`https://${req.headers.host}${req.url}`);
-  }
-  next();
-});
-
-// Root route with login status
+// Root route
 app.get('/', (req, res) => {
   res.send(
     req.session.user !== undefined
@@ -120,24 +131,28 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Database and Server Initialization
+// =============================================
+//            DATABASE & SERVER START
+// =============================================
+
 mongodb.initDb(err => {
-    if (err) {
-      console.error('Database initialization failed:', err);
-      process.exit(1);
-    } else {
-      console.log('Connected to MongoDB successfully');
-  
-      // Updated routes - change products to books
-      app.use('/', routes);
-      app.use('/users', require('./routes/users'));
-      app.use('/books', require('./routes/books')); 
-      app.use('/orders', require('./routes/orders'));
-      app.use('/reviews', require('./routes/reviews'));
-  
-      app.listen(port, '0.0.0.0', () => {
-        console.log(`Server is running on port ${port}`);
-        console.log(`API Docs: http://localhost:${port}/api-docs`);
-      });
-    }
-  });
+  if (err) {
+    console.error('Database initialization failed:', err);
+    process.exit(1);
+  } else {
+    console.log('Connected to MongoDB successfully');
+
+    // Application routes
+    app.use('/', routes);
+    app.use('/users', require('./routes/users'));
+    app.use('/books', require('./routes/books'));
+    app.use('/orders', require('./routes/orders'));
+    app.use('/reviews', require('./routes/reviews'));
+
+    // Start server
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server is running on port ${port}`);
+      console.log(`API Docs: http://localhost:${port}/api-docs`);
+    });
+  }
+});

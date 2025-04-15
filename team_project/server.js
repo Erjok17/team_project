@@ -33,7 +33,7 @@ app.use(
     }),
     cookie: {
       secure: process.env.NODE_ENV === 'production', // Must be true for HTTPS
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin cookies
+      sameSite: 'none', // Allows cross-origin cookies (GitHub → Render)
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }

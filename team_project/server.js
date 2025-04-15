@@ -11,7 +11,6 @@ const cors = require('cors');
 const routes = require('./routes');
 const MongoStore = require('connect-mongo');
 
-// Initialize Express app
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -19,11 +18,10 @@ const port = process.env.PORT || 3000;
 //               MIDDLEWARE SETUP
 // =============================================
 
-// Body parser middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// Session configuration
+// ✅ UPDATED SESSION CONFIGURATION
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'fallback-secret-for-dev-only',
@@ -34,9 +32,10 @@ app.use(
       ttl: 14 * 24 * 60 * 60 // 14 days
     }),
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      secure: true,           // ✅ Must be true for HTTPS on Render
+      sameSite: 'none',       // ✅ Allows cross-origin cookies (GitHub → Render)
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000
     }
   })
 );
@@ -45,7 +44,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// CORS configuration
+// CORS setup
 app.use(
   cors({
     origin: '*',
@@ -58,7 +57,6 @@ app.use(
 //             PASSPORT CONFIGURATION
 // =============================================
 
-// GitHub OAuth Strategy
 passport.use(
   new GitHubStrategy(
     {
@@ -73,11 +71,10 @@ passport.use(
   )
 );
 
-// User serialization
+// Session handling
 passport.serializeUser((user, done) => {
   done(null, user);
 });
-
 passport.deserializeUser((user, done) => {
   done(null, user);
 });
@@ -86,7 +83,6 @@ passport.deserializeUser((user, done) => {
 //                 API ROUTES
 // =============================================
 
-// Swagger Documentation
 app.use(
   '/api-docs',
   swaggerUi.serve,
@@ -99,24 +95,31 @@ app.use(
   })
 );
 
-// Root route
+// ✅ FIXED ROOT ROUTE TO CHECK PROPER LOGIN STATUS
 app.get('/', (req, res) => {
-  res.send(
-    req.session.user !== undefined
-      ? `Logged in as ${req.session.user.username || req.session.user.displayName}`
-      : 'Logged out'
-  );
+  if (req.isAuthenticated()) {
+    res.send(`Logged in as ${req.user.username || req.user.displayName}`);
+  } else {
+    res.send('Logged out');
+  }
 });
 
-// OAuth Routes
+// ✅ UPDATED CALLBACK TO USE req.login() AND SESSION
 app.get(
   '/auth/github/callback',
   passport.authenticate('github', { failureRedirect: '/api-docs', session: true }),
-  (req, res) => {
-    req.session.user = req.user;
-    res.redirect('/');
+  (req, res, next) => {
+    req.login(req.user, (err) => {
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
+      }
+      console.log('User authenticated and stored in session:', req.user);
+      res.redirect('/');
+    });
   }
 );
+
 // Logout route
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {
@@ -139,14 +142,12 @@ mongodb.initDb(err => {
   } else {
     console.log('Connected to MongoDB successfully');
 
-    // Application routes
     app.use('/', routes);
     app.use('/users', require('./routes/users'));
     app.use('/books', require('./routes/books'));
     app.use('/orders', require('./routes/orders'));
     app.use('/reviews', require('./routes/reviews'));
 
-    // Start server
     app.listen(port, '0.0.0.0', () => {
       console.log(`Server is running on port ${port}`);
       console.log(`API Docs: http://localhost:${port}/api-docs`);

@@ -109,17 +109,14 @@ app.get('/', (req, res) => {
 });
 
 // OAuth Routes
-app.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
-
 app.get(
   '/auth/github/callback',
-  passport.authenticate('github', { failureRedirect: '/api-docs', session: false }),
+  passport.authenticate('github', { failureRedirect: '/api-docs', session: true }),
   (req, res) => {
     req.session.user = req.user;
     res.redirect('/');
   }
 );
-
 // Logout route
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {

@@ -23,8 +23,7 @@ const corsOptions = {
   origin: [
     process.env.CLIENT_URL,
     'https://team-project-ahvx.onrender.com',
-    'http://localhost:3000',
-    'http://localhost:8080'
+    'http://localhost:3000'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],

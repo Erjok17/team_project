@@ -12,7 +12,7 @@ const doc = {
     version: '1.0.0',
     description: 'API for managing users and books'
   },
-  host: 'localhost:3000',
+  host: 'https://team-project-ahvx.onrender.com',
   schemes: ['https'],
   tags: [
     { name: 'Users', description: 'User CRUD operations' },

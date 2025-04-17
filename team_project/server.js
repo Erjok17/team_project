@@ -46,7 +46,7 @@ app.use(passport.session());
 // CORS setup
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'https://team-project-ahvx.onrender.com', // Replace with your frontend URL
+    origin: process.env.CLIENT_URL || 'http://localhost:3000', // Replace with your frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
     credentials: true // Allow cookies to be sent with requests
@@ -65,7 +65,7 @@ passport.use(
       callbackURL: process.env.GITHUB_CALLBACK_URL,
       proxy: true // ✅ Ensures proper callback handling behind proxies
     },
-    (accessToken, refreshToken, profile, done) => {
+    (_accessToken, _refreshToken, profile, done) => {
       // Save user profile to the session or database
       return done(null, profile);
     }
